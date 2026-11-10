@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server";
-import fs from "fs/promises";
-import path from "path";
+import { saveOrder } from "../../../lib/store";
 import { MENU, money } from "../../../lib/menu";
-// export const runtime = "nodejs";
 
 function newId() {
   const d = new Date(), p = (n) => String(n).padStart(2, "0");
@@ -31,9 +29,12 @@ export async function POST(req) {
   // 1) save the order (order id + full details)
   let saved = false;
   if (process.env.ORDER_WEBHOOK_URL) {
-    try { const r = await fetch(process.env.ORDER_WEBHOOK_URL, { method: "POST", headers: { "Content-Type": "text/plain" }, body: JSON.stringify(order) }); saved = r.ok; } catch {}
+    try {
+      const r = await fetch(process.env.ORDER_WEBHOOK_URL, { method: "POST", headers: { "Content-Type": "text/plain" }, body: JSON.stringify(order) });
+      saved = r.ok;
+    } catch (e) { console.error("webhook failed", e); }
   }
-  try { await fs.mkdir(path.join(process.cwd(), "data"), { recursive: true }); await fs.appendFile(path.join(process.cwd(), "data", "orders.jsonl"), JSON.stringify(order) + "\n"); saved = true; } catch {}
+  try { await saveOrder(order); saved = true; } catch (e) { console.error("saveOrder failed", e); }
 
   // 2) WhatsApp message for the owner
   const msg = `*New Order ${order.id}*\n\n` + items.map((i) => `${i.qty} x ${i.name} - ${money(i.line)}`).join("\n") +
