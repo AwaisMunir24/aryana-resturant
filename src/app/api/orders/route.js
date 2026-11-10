@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { saveOrder } from "../../../lib/store";
 import { MENU, money } from "../../../lib/menu";
 
+// WhatsApp number that receives orders: international format, no +, no spaces
+const WHATSAPP = "+447414294294";
+
 function newId() {
   const d = new Date(), p = (n) => String(n).padStart(2, "0");
   const r = Array.from({ length: 3 }, () => "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"[Math.floor(Math.random() * 32)]).join("");
@@ -39,6 +42,6 @@ export async function POST(req) {
   // 2) WhatsApp message for the owner
   const msg = `*New Order ${order.id}*\n\n` + items.map((i) => `${i.qty} x ${i.name} - ${money(i.line)}`).join("\n") +
     `\n\n*Total: ${money(order.total)}*\n${order.type}${address ? ": " + address : ""}\nPayment: ${order.payment}\n\nName: ${name}\nPhone: ${phone}${order.notes ? "\nNotes: " + order.notes : ""}`;
-  const whatsappUrl = `https://wa.me/${process.env.NEXT_PUBLIC_WHATSAPP_NUMBER}?text=${encodeURIComponent(msg)}`;
+  const whatsappUrl = `https://wa.me/${WHATSAPP}?text=${encodeURIComponent(msg)}`;
   return NextResponse.json({ id: order.id, total: order.total, whatsappUrl, saved });
 }
