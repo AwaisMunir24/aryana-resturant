@@ -1,41 +1,64 @@
-import { NextResponse } from "next/server";
-import { saveOrder } from "../../../lib/store";
-import { MENU, money } from "../../../lib/menu";
+import { promises as fs } from "fs";
+import path from "path";
 
-function newId() {
-  const d = new Date(), p = (n) => String(n).padStart(2, "0");
-  const r = Array.from({ length: 3 }, () => "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"[Math.floor(Math.random() * 32)]).join("");
-  return `ARY-${String(d.getFullYear()).slice(2)}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}-${r}`;
+const URL = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
+const TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
+const TZ = "Asia/Karachi";
+
+export const dayOf = (t) => new Date(t).toLocaleDateString("en-CA", { timeZone: TZ });
+
+async function redis(...cmd) {
+  const r = await fetch(URL, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${TOKEN}` },
+    body: JSON.stringify(cmd),
+    cache: "no-store",
+  });
+  const j = await r.json();
+  if (j.error) throw new Error(j.error);
+  return j.result;
 }
 
-export async function POST(req) {
-  const b = await req.json().catch(() => ({}));
-  const name = String(b.name || "").trim().slice(0, 80), phone = String(b.phone || "").trim().slice(0, 30);
-  // prices are re-calculated on the server; never trust the browser
-  const items = (Array.isArray(b.items) ? b.items : []).map((i) => {
-    const m = MENU.find((x) => x.id === i.id), q = Math.min(Math.max(parseInt(i.q) || 0, 0), 50);
-    return m && q ? { name: m.n, qty: q, price: m.p, line: +(m.p * q).toFixed(2) } : null;
-  }).filter(Boolean);
-  if (!name || !phone || !items.length) return NextResponse.json({ error: "Name, phone and at least one item are required." }, { status: 400 });
+const dir = process.env.VERCEL ? "/tmp" : path.join(process.cwd(), ".data");
+const file = (n) => path.join(dir, n);
+async function readJson(n, fallback) {
+  try { return JSON.parse(await fs.readFile(file(n), "utf8")); } catch { return fallback; }
+}
+async function writeJson(n, data) {
+  await fs.mkdir(dir, { recursive: true });
+  await fs.writeFile(file(n), JSON.stringify(data));
+}
 
-  const address = String(b.address || "").trim().slice(0, 200);
-  const order = {
-    id: newId(), time: new Date().toISOString(), name, phone,
-    type: address ? "Delivery" : "Collection", address, notes: String(b.notes || "").trim().slice(0, 200),
-    payment: "Payment link",
-    items, total: +items.reduce((s, i) => s + i.line, 0).toFixed(2),
-  };
+export async function saveOrder(order) {
+  if (URL && TOKEN) { await redis("RPUSH", "orders", JSON.stringify(order)); return; }
+  const all = await readJson("orders.json", []);
+  all.push(order);
+  await writeJson("orders.json", all);
+}
 
-  // 1) save the order (order id + full details)
-  let saved = false;
-  if (process.env.ORDER_WEBHOOK_URL) {
-    try { const r = await fetch(process.env.ORDER_WEBHOOK_URL, { method: "POST", headers: { "Content-Type": "text/plain" }, body: JSON.stringify(order) }); saved = r.ok; } catch {}
+export async function readOrders() {
+  if (URL && TOKEN) return ((await redis("LRANGE", "orders", 0, -1)) || []).map((s) => JSON.parse(s));
+  return readJson("orders.json", []);
+}
+
+export async function readDelivered() {
+  if (URL && TOKEN) {
+    const flat = (await redis("HGETALL", "delivered")) || [];
+    const out = {};
+    for (let i = 0; i < flat.length; i += 2) out[flat[i]] = flat[i + 1];
+    return out;
   }
-  try { await saveOrder(order); saved = true; } catch {}
+  return readJson("delivered.json", {});
+}
 
-  // 2) WhatsApp message for the owner
-  const msg = `*New Order ${order.id}*\n\n` + items.map((i) => `${i.qty} x ${i.name} - ${money(i.line)}`).join("\n") +
-    `\n\n*Total: ${money(order.total)}*\n${order.type}${address ? ": " + address : ""}\nPayment: ${order.payment}\n\nName: ${name}\nPhone: ${phone}${order.notes ? "\nNotes: " + order.notes : ""}`;
-  const whatsappUrl = `https://wa.me/${process.env.NEXT_PUBLIC_WHATSAPP_NUMBER}?text=${encodeURIComponent(msg)}`;
-  return NextResponse.json({ id: order.id, total: order.total, whatsappUrl, saved });
+export async function setDelivered(id, delivered) {
+  if (URL && TOKEN) {
+    if (delivered) await redis("HSET", "delivered", id, new Date().toISOString());
+    else await redis("HDEL", "delivered", id);
+    return;
+  }
+  const dl = await readJson("delivered.json", {});
+  if (delivered) dl[id] = new Date().toISOString();
+  else delete dl[id];
+  await writeJson("delivered.json", dl);
 }
