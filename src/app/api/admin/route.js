@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { readOrders, readDelivered, setDelivered, dayOf } from "../../../../lib/store";
-
+import { readOrders, readDelivered, setDelivered, dayOf } from "../../../lib/store";
 const allowed = (req) => !!process.env.ADMIN_PASSWORD && req.headers.get("x-admin-password") === process.env.ADMIN_PASSWORD;
 const denied = () => NextResponse.json({ error: process.env.ADMIN_PASSWORD ? "Wrong password." : "Set ADMIN_PASSWORD in .env.local and restart the server." }, { status: 401 });
 
