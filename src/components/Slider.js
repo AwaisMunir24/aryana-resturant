@@ -3,9 +3,9 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 // Set img to "/images/hero-1.jpg" etc. once you add the photos to public/images
 const SLIDES = [
-  { k: "Welcome to Aryana", t: ["Authentic ", "Afghan", " flavours"], s: "Slow-cooked rice, tender lamb and fresh-baked bread, made the traditional way.", img: null },
-  { k: "From the charcoal", t: ["Grilled fresh, ", "every", " order"], s: "Marinated, skewered and cooked over live charcoal for that smoky taste.", img: null },
-  { k: "Easy online ordering", t: ["Order in ", "minutes", ""], s: "Add your favourites to the cart and send your order on WhatsApp.", img: null },
+  { k: "Welcome to Aryana", t: ["Authentic ", "Afghan", " flavours"], s: "Slow-cooked rice, tender lamb and fresh-baked bread, made the traditional way.", img: '/images/spices-img.jpg' },
+  { k: "From the charcoal", t: ["Grilled fresh, ", "every", " order"], s: "Marinated, skewered and cooked over live charcoal for that smoky taste.", img: '/images/mixed-grill.jpg' },
+  { k: "Easy online ordering", t: ["Order in ", "minutes", ""], s: "Add your favourites to the cart and send your order on WhatsApp.", img: '/images/food-img.jpg' },
 ];
 export default function Slider() {
   const [i, setI] = useState(0);

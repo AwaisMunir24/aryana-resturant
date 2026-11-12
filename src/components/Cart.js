@@ -2,13 +2,14 @@
 import { useState } from "react";
 import { useCart } from "./CartContext";
 import { money } from "../lib/menu";
-const PAY = process.env.NEXT_PUBLIC_PAYMENT_LINK;
+
 export default function Cart() {
   const { lines, change, total, clear, open, setOpen, checkout, setCheckout } = useCart();
   const [f, setF] = useState({ name: "", phone: "", address: "", notes: "" });
   const [err, setErr] = useState(""), [busy, setBusy] = useState(false), [done, setDone] = useState(null);
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
   const close = () => { setOpen(false); setCheckout(false); setDone(null); };
+
   async function place() {
     if (!f.name.trim() || !f.phone.trim()) return setErr("Enter your name and phone number.");
     setBusy(true); setErr("");
@@ -22,6 +23,7 @@ export default function Cart() {
     } catch (e) { if (w) w.close(); setErr(e.message); }
     setBusy(false);
   }
+
   if (!open) return null;
   return (
     <div className={checkout || done ? "modal" : "drawer"} onClick={(e) => e.target === e.currentTarget && close()}>
@@ -29,9 +31,8 @@ export default function Cart() {
         {done ? (
           <div className="ok">
             <div className="big">✅</div><h2>Order received</h2><p>Your order number</p><div className="oid">{done.id}</div>
-            <p className="mut">Your order details were sent to WhatsApp. Tap Pay now to complete payment.</p>
-            <a className="btn red w" target="_blank" rel="noopener" href={done.whatsappUrl}>Send order on WhatsApp</a>
-            <div className="payarea"><a className="btn" target="_blank" rel="noopener" href={PAY}>Pay {money(done.total)} now</a></div>
+            <p className="mut">Your order details were sent to our WhatsApp. We'll reply there with your payment link.</p>
+            <a className="btn red w" target="_blank" rel="noopener" href={done.whatsappUrl}>Open WhatsApp</a>
             <button className="add grey" onClick={close}>Close</button>
           </div>
         ) : checkout ? (
